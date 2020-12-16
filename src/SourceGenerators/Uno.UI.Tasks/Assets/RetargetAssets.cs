@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Tasks;
 using Microsoft.Build.Utilities;
 using Uno.Extensions;
 using Uno.Extensions.Specialized;
@@ -17,7 +18,8 @@ namespace Uno.UI.Tasks.Assets
 	/// Retargets UWP assets to Android and iOS.
 	/// </summary>
 	/// <remarks>
-	/// Currently supports .png, .jpg, .jpeg and .gif.
+	/// Currently supports .png, .jpg, .jpeg and .gif for images
+	/// and .ttf, .eot, .woff and .woff2 for fonts
 	/// </remarks>
 	public class RetargetAssets_v0 : Task
 	{
@@ -49,7 +51,7 @@ namespace Uno.UI.Tasks.Assets
 
 			Func<ResourceCandidate, string> resourceToTargetPath;
 			Func<string, string> pathEncoder;
-			
+
 			switch (TargetPlatform)
 			{
 				case "ios":
@@ -93,7 +95,7 @@ namespace Uno.UI.Tasks.Assets
 				relativePath = fullPath.Replace(asset.GetMetadata("DefiningProjectDirectory"), "");
 			}
 
-			if (IsImageAsset(asset.ItemSpec))
+			if (AssetHelper.IsImageAsset(asset.ItemSpec))
 			{
 				var resourceCandidate = ResourceCandidate.Parse(fullPath, relativePath);
 
@@ -119,6 +121,18 @@ namespace Uno.UI.Tasks.Assets
 						{ "AssetType", "image" }
 					});
 			}
+			else if (AssetHelper.IsFontAsset(asset.ItemSpec))
+			{
+				var resourceCandidate = ResourceCandidate.Parse(fullPath, relativePath);
+				var targetPath = resourceToTargetPath(resourceCandidate);
+				this.Log().Info($"Retargeting font '{asset.ItemSpec}' to '{targetPath}'.");
+				return new TaskItem(
+					asset.ItemSpec,
+					new Dictionary<string, string>() {
+						{ "LogicalName", targetPath },
+						{ "AssetType", "font" }
+					});
+			}
 			else
 			{
 				var encodedRelativePath = pathEncoder(relativePath);
@@ -131,15 +145,6 @@ namespace Uno.UI.Tasks.Assets
 						{ "AssetType", "generic" }
 					});
 			}
-		}
-
-		private static bool IsImageAsset(string path)
-		{
-			var extension = Path.GetExtension(path).ToLowerInvariant();
-			return extension == ".png"
-				|| extension == ".jpg"
-				|| extension == ".jpeg"
-				|| extension == ".gif";
 		}
 	}
 }
